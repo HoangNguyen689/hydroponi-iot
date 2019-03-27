@@ -25,6 +25,8 @@ EventGroupHandle_t wifi_event_group;
 
 const int CONNECTED_BIT = BIT0;
 
+extern bool wifi_connected;
+
 esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
 {
     switch (event->event_id) {
@@ -33,13 +35,15 @@ esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
             break;
         case SYSTEM_EVENT_STA_GOT_IP:
             xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
+			wifi_connected = true;
             break;
         case SYSTEM_EVENT_STA_DISCONNECTED:
-            esp_wifi_connect();
-            xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
-            break;
+		    wifi_connected = false;
+		    esp_wifi_connect();
+		    xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
+		    break;
         default:
-            break;
+		    break;
     }
     return ESP_OK;
 }
@@ -57,8 +61,8 @@ void wifi_manager( void *pvParameter )
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
     wifi_config_t wifi_config = {
         .sta = {
-            .ssid = "NCT",
-            .password = "dccndccn",
+            .ssid = SSID,
+            .password = PASSWD,
         },
     };
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
@@ -68,7 +72,7 @@ void wifi_manager( void *pvParameter )
 	
 	for(;;)
 	  {
-		//TODO
+		vTaskDelay(pdMS_TO_TICKS(1000));
 	  }
 	
 }

@@ -5,6 +5,9 @@
 #define DEFAULT_AP_SSID        "esp32"
 #define DEFAULT_AP_PASSWORD    "esp32pwd"
 
+#define SSID "NCT"
+#define PASSWD "dccndccn"
+
 /**
  * Main task for the wifi_manager
  */
