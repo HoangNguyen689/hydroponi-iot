@@ -188,14 +188,27 @@ void mqtt_app_start(void)
 	xTaskCreate(publish_data_to_broker,	"Name", 2048, NULL,	5, NULL);
 }
 
+
+void DHT_task(void *pvParameter)
+{
+   printf("Starting DHT measurement!\n");
+   while(1) {
+	 readDHT();
+	 printf("Temperature reading %f\n",getTemperature());
+	 printf("Humidity reading %f\n",getHumidity());
+	 vTaskDelay(3000 / portTICK_RATE_MS);
+   }
+}
+
 void app_main()
 {
     nvs_flash_init();
 
 	/* task for wifi manager */
-	xTaskCreate(&wifi_manager, "wifi_manager", 4096, NULL, 5, &task_wifi_manager);
+	//xTaskCreate(&wifi_manager, "wifi_manager", 4096, NULL, 5, &task_wifi_manager);
 	vTaskDelay(5000/portTICK_PERIOD_MS);
 
-    mqtt_app_start();
+    //mqtt_app_start();
 
+    xTaskCreate(&DHT_task, "DHT_task", 4096, NULL, 5, NULL);
 }
