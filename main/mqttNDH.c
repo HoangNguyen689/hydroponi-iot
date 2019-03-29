@@ -1,15 +1,20 @@
 #include <stdio.h>
+#include <string.h>
+
+#include "esp_wifi.h"
+#include "esp_system.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/event_groups.h"
 
 #include "esp_log.h"
 #include "mqtt_client.h"
 
-#include "cJSON.h"
-
 #include "mqttNDH.h"
+
+#include "cJSON.h"
+#include "actuatorNDH.h"
+
 #include "dht22.h"
 
 const char *TAG = "MQTT";
@@ -18,6 +23,7 @@ const char *broker = "mqtt://broker.hivemq.com";
 
 extern bool mqtt_connected;
 extern bool wifi_connected;
+extern bool identified;
 
 esp_mqtt_client_handle_t client;
 
@@ -42,7 +48,9 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
 	ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
 	
 	esp_mqtt_client_subscribe(client, "MQTT_CONTROL_NDH", 0);
+	esp_mqtt_client_subscribe(client, "MQTT_IDENTIFY_REPLY_NDH", 0);
 	ESP_LOGI(TAG, "Subscribe successful!");
+	//identified = true;
 	break;
 			
   case MQTT_EVENT_DISCONNECTED:
@@ -68,7 +76,7 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
 	printf("DATA=%.*s\r\n", event->data_len, event->data);
 	command =  event->data;
 	*(command + event->data_len ) = '\0';
-	//turn_pump_on_with_command(command);
+	turn_pump_on_with_command(command);
 	break;
 	
   case MQTT_EVENT_ERROR:
@@ -80,7 +88,19 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
 
 void publish_data_to_broker() {
   while(1) {
-	if(mqtt_connected && wifi_connected) {
+	if ( !wifi_connected ) {
+	  ESP_LOGI(TAG, "WIFI is not connected!\n");
+	  vTaskDelay(pdMS_TO_TICKS(1000*60));
+	}
+	else if ( !mqtt_connected ) {
+	  ESP_LOGI(TAG, "MQTT_Server is not connected!\n");
+	  vTaskDelay(pdMS_TO_TICKS(1000*60));
+	}
+	else if ( !identified ) {
+	  ESP_LOGI(TAG, "Not identified yet!\n");
+	  vTaskDelay(pdMS_TO_TICKS(1000*60));
+	}
+	else {
 	  for(int i = 0; i < 10; i++) {
 		readDHT();
 		
@@ -89,7 +109,7 @@ void publish_data_to_broker() {
 		cJSON_AddStringToObject(root, "deviceId", "dev1");
 		cJSON_AddNumberToObject(root, "temperature", getTemperature() );
 		cJSON_AddNumberToObject(root, "humidity", getHumidity() );
-		cJSON_AddNumberToObject(root, "moisture", 0.6 );
+		cJSON_AddNumberToObject(root, "moisture", read_soil_moisture() );
 		char *text = cJSON_PrintUnformatted(root);
 		ESP_LOGI(TAG,"Sent data: %s\n",text);
 		esp_mqtt_client_publish(client,"MQTT_COLLECT_NDH",text,0,0,0);
@@ -112,5 +132,5 @@ void mqtt_app_start(void) {
   esp_mqtt_client_start(client);
   vTaskDelay(5000/portTICK_PERIOD_MS);
   
-  xTaskCreate(publish_data_to_broker, "Name", 2048, NULL, 5, NULL);
+  xTaskCreate(publish_data_to_broker, "Name", 4096, NULL, 5, NULL);
 }
