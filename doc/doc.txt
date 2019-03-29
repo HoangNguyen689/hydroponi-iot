@@ -1,0 +1,2 @@
+WATER_FLOW_SENSOR:
+https://www.dfrobot.com/wiki/index.php/Water_Flow_Sensor_-_1/8%22_SKU:_SEN0216

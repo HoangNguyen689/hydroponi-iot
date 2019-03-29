@@ -91,7 +91,7 @@ double water_flow(double limit) {
 	pcnt_get_counter_value(PCNT_TEST_UNIT, &count);    
 	total_water +=  (count / 5880.0) * 1000.0;
 	pcnt_counter_clear(PCNT_TEST_UNIT);
-	if (totalMilliLitres > limit) {
+	if (total_water > limit) {
 	  break;
 	}
   }
@@ -101,5 +101,5 @@ double water_flow(double limit) {
 	user_isr_handle = NULL;
   }
   pcnt_isr_handler_remove(PCNT_TEST_UNIT);
-  return totalMilliLitres;
+  return total_water;
 }

@@ -34,25 +34,19 @@
 #include "wifi_manager.h"
 
 #include "pcntNDH.h"
+#include "mqttNDH.h"
 
 #include "cJSON.h"
 #include "dht22.h"
 
-//static TaskHandle_t task_wifi_manager = NULL;
+TaskHandle_t task_wifi_manager = NULL;
 
-static const char *TAG = "MQTT";
+const adc_channel_t channel = ADC_CHANNEL_0; //gpio36   
+const adc_atten_t atten = ADC_ATTEN_DB_11;
 
-static esp_mqtt_client_handle_t client;
-
-static const adc_channel_t channel = ADC_CHANNEL_0; //gpio36   
-static const adc_atten_t atten = ADC_ATTEN_DB_11;
-
-static const char *broker = "mqtt://broker.hivemq.com";
-
-static bool mqtt_connected = false;
+bool mqtt_connected = false;
 
 bool wifi_connected = false;
-
 
 int read_soil_moisture()
 {
@@ -100,109 +94,6 @@ void turn_pump_on_with_command(char *command) {
   
 }
 
-static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
-{
-    esp_mqtt_client_handle_t client = event->client;
-    int msg_id;
-	char *command;
-	
-    switch (event->event_id) {
-        case MQTT_EVENT_CONNECTED:
-            ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-			mqtt_connected = true;
-			char *topic = "MQTT_IDENTIFY_NDH";
-			cJSON *root = cJSON_CreateObject();
-			cJSON_AddStringToObject(root, "deviceId", "dev1");
-			cJSON_AddStringToObject(root, "username", "dev1");
-			cJSON_AddStringToObject(root, "password", "dev1");
-			char *text = cJSON_PrintUnformatted(root);
-			  
-            msg_id = esp_mqtt_client_publish(client, topic, text, 0, 0, 0);
-            ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
-
-            esp_mqtt_client_subscribe(client, "MQTT_CONTROL_NDH", 0);
-            ESP_LOGI(TAG, "Subscribe successful!");
-            break;
-			
-        case MQTT_EVENT_DISCONNECTED:
-            ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
-			mqtt_connected = false;
-            break;
-        case MQTT_EVENT_SUBSCRIBED:
-            ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
-			break;
-        case MQTT_EVENT_UNSUBSCRIBED:
-            ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
-            break;
-        case MQTT_EVENT_PUBLISHED:
-            ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
-            break;
-        case MQTT_EVENT_DATA:
-            ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-            printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
-            printf("DATA=%.*s\r\n", event->data_len, event->data);
-			//char command[event->data_len + 1];
-			command =  event->data;
-			*(command + event->data_len ) = '\0';
-			turn_pump_on_with_command(command);
-            break;
-        case MQTT_EVENT_ERROR:
-            ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
-            break;
-    }
-    return ESP_OK;
-}
-
-
-void publish_data_to_broker(void *pvParameters)
-{
-  for( ;; )
-	{
-	  if(mqtt_connected && wifi_connected) {
-		for(int i = 0; i < 10; i++) {
-		  cJSON *root = NULL;
-		  root = cJSON_CreateObject();
-		  
-		  cJSON_AddStringToObject(root, "deviceId", "dev1");
-		  cJSON_AddNumberToObject(root, "humidity", read_soil_moisture() );
-		  char *text = cJSON_PrintUnformatted(root);
-		  ESP_LOGI(TAG,"Sent data: %s\n",text);
-		  esp_mqtt_client_publish(client,"MQTT_COLLECT_NDH",text,0,0,0);
-		  //vTaskDelay(pdMS_TO_TICKS(1000));
-		}
-		vTaskDelay(pdMS_TO_TICKS(1000*60*2));
-	  }
-	}
-
-}
-
-void mqtt_app_start(void)
-{
-    esp_mqtt_client_config_t mqtt_cfg = {
-        .uri = broker,
-        .event_handle = mqtt_event_handler,
-        .port = 1883,
-    };
-
-	client = esp_mqtt_client_init(&mqtt_cfg);
-    esp_mqtt_client_start(client);
-	vTaskDelay(5000/portTICK_PERIOD_MS);
-
-	xTaskCreate(publish_data_to_broker,	"Name", 2048, NULL,	5, NULL);
-}
-
-
-void DHT_task(void *pvParameter)
-{
-   printf("Starting DHT measurement!\n");
-   while(1) {
-	 readDHT();
-	 printf("Temperature reading %f\n",getTemperature());
-	 printf("Humidity reading %f\n",getHumidity());
-	 vTaskDelay(3000 / portTICK_RATE_MS);
-   }
-}
-
 extern xQueueHandle pcnt_evt_queue;
 extern pcnt_isr_handle_t user_isr_handle;
 
@@ -210,12 +101,18 @@ void app_main()
 {
     nvs_flash_init();
 
-	/* task for wifi manager */
-	//xTaskCreate(&wifi_manager, "wifi_manager", 4096, NULL, 5, &task_wifi_manager);
+	xTaskCreate(&wifi_manager, "wifi_manager", 4096, NULL, 5, &task_wifi_manager);
 	vTaskDelay(5000/portTICK_PERIOD_MS);
 
-    //mqtt_app_start();
+    mqtt_app_start();
 
-    //xTaskCreate(&DHT_task, "DHT_task", 4096, NULL, 5, NULL);
+	/*
+	int xx;
+	while(1) {
+	  xx = read_soil_moisture();
+	  printf("%d\n", xx);
+	  vTaskDelay(pdMS_TO_TICKS(1000));
+	}
+	*/
 
 }
