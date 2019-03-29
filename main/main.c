@@ -15,9 +15,10 @@
 #include "freertos/queue.h"
 #include "freertos/event_groups.h"
 
-#include "driver/gpio.h"
-#include "driver/spi_master.h"
 #include "driver/adc.h"
+#include "driver/gpio.h"
+#include "driver/pcnt.h"
+#include "driver/spi_master.h"
 
 #include "mdns.h"
 
@@ -32,10 +33,12 @@
 
 #include "wifi_manager.h"
 
+#include "pcntNDH.h"
+
 #include "cJSON.h"
 #include "dht22.h"
 
-static TaskHandle_t task_wifi_manager = NULL;
+//static TaskHandle_t task_wifi_manager = NULL;
 
 static const char *TAG = "MQTT";
 
@@ -200,6 +203,9 @@ void DHT_task(void *pvParameter)
    }
 }
 
+extern xQueueHandle pcnt_evt_queue;
+extern pcnt_isr_handle_t user_isr_handle;
+
 void app_main()
 {
     nvs_flash_init();
@@ -210,5 +216,6 @@ void app_main()
 
     //mqtt_app_start();
 
-    xTaskCreate(&DHT_task, "DHT_task", 4096, NULL, 5, NULL);
+    //xTaskCreate(&DHT_task, "DHT_task", 4096, NULL, 5, NULL);
+
 }
