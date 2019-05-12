@@ -55,7 +55,7 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
 	char *text = cJSON_PrintUnformatted(root);
 		
 	msg_id = esp_mqtt_client_publish(client, topic, text, 0, 0, 0);
-	ESP_LOGI(TAG, "Sent identify message successful, msg_id=%d, %s", msg_id, text);	
+	ESP_LOGI(TAG, "Sent identify message successful - first time!");	
 	
 	break;
 			
@@ -86,7 +86,8 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
 	printf("%s\n", command);
 
 	while (1) {
-	  
+
+	  printf("in loop\n");
 	  if (strcmp(subcribe_topic, "MQTT_IDENTIFY_REPLY_NDH") == 0) {
 		printf("Check identify!\n");
 		identified = true;
@@ -167,10 +168,18 @@ void mqtt_app_start(void) {
   client = esp_mqtt_client_init(&mqtt_cfg);
   esp_mqtt_client_start(client);
   vTaskDelay(5000/portTICK_PERIOD_MS);
+
+  
   
   xTaskCreate(publish_data_to_broker, "Name", 4096, NULL, 5, NULL);
 }
 
-void mqtt_publish_identify_message(esp_mqtt_client_handle_t client) {
-  
+/*
+void mqtt_publish_identify_message() {
+  esp_mqtt_client_handle_t cli;
+  esp_mqtt_client_config_t cfg;
+  config.port = 1883;
+  config.uri = broker;
+  cli = esp_mqtt_client_init(&cfg); 
 }
+*/
