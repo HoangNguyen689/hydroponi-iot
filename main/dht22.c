@@ -12,7 +12,7 @@
 
 static const char* TAG = "DHT";
 
-int DHTgpio = 4;
+int DHTgpio = 32;
 float humidity = 0.;
 float temperature = 0.;
 

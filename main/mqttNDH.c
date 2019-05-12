@@ -30,27 +30,33 @@ esp_mqtt_client_handle_t client;
 esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
   esp_mqtt_client_handle_t client = event->client;
   int msg_id;
-  char *command;
-  
+  char subcribe_topic[1024] ;
+  char command[2048] ;
+
   switch (event->event_id) {
 	
   case MQTT_EVENT_CONNECTED:
 	ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
 	mqtt_connected = true;
+  
+	esp_mqtt_client_subscribe(client, "MQTT_IDENTIFY_REPLY_NDH", 0);
+	ESP_LOGI(TAG, "Subscribe identify server successful!");
+	esp_mqtt_client_subscribe(client, "MQTT_CONTROL_NDH", 0);
+	ESP_LOGI(TAG, "Subscribe control server successful!");
+
+	ESP_LOGI(TAG, "Check identify ...");
+	
 	char *topic = "MQTT_IDENTIFY_NDH";
 	cJSON *root = cJSON_CreateObject();
 	cJSON_AddStringToObject(root, "deviceId", "dev1");
 	cJSON_AddStringToObject(root, "username", "dev1");
 	cJSON_AddStringToObject(root, "password", "dev1");
+	  
 	char *text = cJSON_PrintUnformatted(root);
-	
+		
 	msg_id = esp_mqtt_client_publish(client, topic, text, 0, 0, 0);
-	ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
+	ESP_LOGI(TAG, "Sent identify message successful, msg_id=%d, %s", msg_id, text);	
 	
-	esp_mqtt_client_subscribe(client, "MQTT_CONTROL_NDH", 0);
-	esp_mqtt_client_subscribe(client, "MQTT_IDENTIFY_REPLY_NDH", 0);
-	ESP_LOGI(TAG, "Subscribe successful!");
-	//identified = true;
 	break;
 			
   case MQTT_EVENT_DISCONNECTED:
@@ -70,15 +76,45 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
 	ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
 	break;
 	
-  case MQTT_EVENT_DATA:
+  case MQTT_EVENT_DATA: 
 	ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-	printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
-	printf("DATA=%.*s\r\n", event->data_len, event->data);
-	command =  event->data;
-	*(command + event->data_len ) = '\0';
-	turn_pump_on_with_command(command);
-	break;
 	
+	sprintf(subcribe_topic, "%.*s", event->topic_len, event->topic);
+	sprintf(command, "%.*s", event->data_len, event->data);
+
+	printf("%s\n",subcribe_topic);
+	printf("%s\n", command);
+
+	while (1) {
+	  
+	  if (strcmp(subcribe_topic, "MQTT_IDENTIFY_REPLY_NDH") == 0) {
+		printf("Check identify!\n");
+		identified = true;
+	  }
+	  
+	  if (identified == true) break;
+
+	  
+	  char *topic = "MQTT_IDENTIFY_NDH";
+	  cJSON *root = cJSON_CreateObject();
+	  cJSON_AddStringToObject(root, "deviceId", "dev1");
+	  cJSON_AddStringToObject(root, "username", "dev1");
+	  cJSON_AddStringToObject(root, "password", "dev1");
+	  
+	  char *text = cJSON_PrintUnformatted(root);
+		
+	  msg_id = esp_mqtt_client_publish(client, topic, text, 0, 0, 0);
+	  ESP_LOGI(TAG, "Sent identify message successful, msg_id=%d, %s", msg_id, text);	
+	  vTaskDelay(pdMS_TO_TICKS(10 * 1000));
+	}
+
+	  
+	if (strcmp(subcribe_topic, "MQTT_CONTROL_NDH") == 0 && identified == true) {
+	  turn_pump_on_with_command(command);
+	}
+	
+	break;
+  
   case MQTT_EVENT_ERROR:
 	ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
 	break;
@@ -133,4 +169,8 @@ void mqtt_app_start(void) {
   vTaskDelay(5000/portTICK_PERIOD_MS);
   
   xTaskCreate(publish_data_to_broker, "Name", 4096, NULL, 5, NULL);
+}
+
+void mqtt_publish_identify_message(esp_mqtt_client_handle_t client) {
+  
 }

@@ -33,8 +33,6 @@
 #include "pcntNDH.h"
 #include "mqttNDH.h"
 
-TaskHandle_t task_wifi_manager = NULL;
-
 bool mqtt_connected = false;
 bool wifi_connected = false;
 bool identified = false;
@@ -43,8 +41,8 @@ void app_main()
 {
     nvs_flash_init();
 
-	//xTaskCreate(&wifi_manager, "wifi_manager", 4096, NULL, 5, &task_wifi_manager);
 	wifi_manager();
+
 	vTaskDelay(5000/portTICK_PERIOD_MS);
 
     mqtt_app_start();
