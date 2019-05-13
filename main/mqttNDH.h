@@ -6,5 +6,6 @@
 esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event);
 void publish_data_to_broker();
 void mqtt_app_start();
+void publish_iden();
 
 #endif
