@@ -13,12 +13,16 @@
 #include "esp_log.h"
 #include "mqtt_client.h"
 
+#include <hwcrypto/aes.h>
+
 #include "mqttNDH.h"
 
 #include "cJSON.h"
 #include "actuatorNDH.h"
 
 #include "dht22.h"
+
+#include "crypto/base64.h"
 
 const char *TAG = "MQTT";
 
@@ -163,7 +167,7 @@ void publish_data_to_broker() {
 		esp_mqtt_client_publish(client,"MQTT_COLLECT_NDH",text,0,0,0);
 		//vTaskDelay(pdMS_TO_TICKS(1000));
 	  }
-	  vTaskDelay(pdMS_TO_TICKS(1000*60*2));
+	  vTaskDelay(pdMS_TO_TICKS(1000*60*10));
 	}
   }
   
@@ -184,15 +188,27 @@ void mqtt_app_start(void) {
   xTaskCreate(publish_data_to_broker, "Name", 4096, NULL, 5, NULL);
 }
 
-void publish_iden() {
-	char *topic = "MQTT_IDENTIFY_NDH";
-	cJSON *root = cJSON_CreateObject();
-	cJSON_AddStringToObject(root, "deviceId", "dev1");
-	cJSON_AddStringToObject(root, "username", "dev1");
-	cJSON_AddStringToObject(root, "password", "dev1");
-	char *text = cJSON_PrintUnformatted(root);
+void publish_iden() {  
+  char *topic = "MQTT_IDENTIFY_NDH";
+  cJSON *root = cJSON_CreateObject();
+
+  char *plaintext = "howtogetagoodpassword";
+  size_t len;
+  unsigned char *encrypted = base64_encode( (const unsigned char*)plaintext, strlen(plaintext) , &len );
+
+  char result[1024];
+  sprintf( result, "%.*s", len, encrypted );
+  result[len-1] = '\0';
+  //printf("%s\n", plaintext);
+  //printf("%s\n", result);
+
+  
+  cJSON_AddStringToObject(root, "deviceId", "dev1");
+  cJSON_AddStringToObject(root, "username", "dev1");
+  cJSON_AddStringToObject(root, "password", (const char*)result);
+  char *text = cJSON_PrintUnformatted(root);
 	  
-	esp_mqtt_client_publish(client, topic, text, 0, 0, 0);
-	ESP_LOGI(TAG, "Sent identify message successful !");
-	vTaskDelay(pdMS_TO_TICKS(20 * 1000));
+  esp_mqtt_client_publish(client, topic, text, 0, 0, 0);
+  ESP_LOGI(TAG, "Sent identify message successful !");
+  vTaskDelay(pdMS_TO_TICKS(20 * 1000));
 }
